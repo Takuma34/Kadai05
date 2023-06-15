@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Map&amp;Geolocation</title>
+    <link rel="stylesheet" href="css/location.css"/>
+  </head>
+
+  <body>
+    <header>
+      <h1>安否確認アプリ</h1>
+    </header>
+
+    <main>
+      <table id="mainTable">
+        <tr>
+          <td class="yourname">名前</td>
+
+          <td id="nameoption">
+            <input id="yourNameOption" type="text">
+          </td>
+        </tr>
+
+        <tr>
+          <td class="anpi">本人安否</td>
+          <td class="option">
+            <select id="myanpi" name="anpi">
+              <option name="anpi">ーー</option>
+              <option name="anpi">無事</option>
+              <option name="anpi">軽傷</option>
+              <option name="anpi">重傷</option>
+              <option name="anpi">その他</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td class="fromwho">場所</td>
+          <td class="option">
+            <select id="fromWhoOption" name="from">
+              <option name="from">ーー</option>
+              <option name="from">自宅</option>
+              <option name="from">会社</option>
+              <option name="from">学校</option>
+              <option name="from">駅</option>
+              <option name="from">その他</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td class="reson">コメント</td>
+          <td id="textroom">
+            <textarea id="message" name="message"></textarea>
+          </td>
+        </tr>
+    
+        <tr>
+          <td id="mylocation" colspan="2">
+            <div id="getLocationButton">現在位置取得</div>
+          </td>
+        </tr>
+        
+        <tr>
+          <td colspan="2" id="maybottom">
+            <div id="myMap"></div>
+          </td>
+        </tr>
+
+      </table>
+    </main>
+    
+      <ul>
+        <li id="save">送信</li>
+        <li id="remove">クリア</li>
+        <li id="clear">履歴削除</li>
+      </ul>
+      <div id="output" style="overflow: auto; height: 500px; display: none;"></div>
+
+    </main>
+
+
+   <!-- jQuery&GoogleMapsAPI -->
+   <script
+   src="https://www.bing.com/api/maps/mapcontrol?callback=GetMap&key="
+   async
+   defer
+ ></script>
+   <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+   <script src="js/BmapQuery.js"></script>
+
+   <script>
+
+      let map;
+      let savedLat;
+      let savedLon;
+
+       // 位置情報取得ボタンがクリックされたときの処理
+       $("#getLocationButton").click(function () {
+          navigator.geolocation.getCurrentPosition(mapsInit, mapsError, {
+            enableHighAccuracy: true,
+            maximumAge: 20000,
+            timeout: 10000,
+          });
+
+      //****************************************
+      //成功関数
+      //***************************************
+          function mapsInit(position) {
+          console.log(position, "取得");
+          // lat=緯度、lon=経度 を取得
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+
+          // 保存
+          savedLat = lat;
+          savedLon = lon;
+
+          // Map表示
+          map = new Bmap("#myMap");
+          map.startMap(lat, lon, "load", 20);
+          // Pinを追加
+          let pin = map.pin(lat, lon, "pink");
+          // Infoboxを追加
+          map.infobox(lat, lon, "この位置でデータを送る");
+          console.log(lat, lon);
+          }
+      //****************************************
+      //失敗関数
+      //****************************************
+      function mapsError(error) {
+        let e = "";
+        if (error.code == 1) {
+          e = "位置情報が許可されてません";
+        }
+        if (error.code == 2) {
+          e = "現在位置を特定できません";
+        }
+        if (error.code == 3) {
+          e = "位置情報を取得する前にタイムアウトになりました";
+        }
+        alert("エラー：" + e);
+      }
+      //****************************************
+      //オプション設定
+      //****************************************
+      const set = {
+        enableHighAccuracy: true, //より高精度な位置を求める
+        maximumAge: 20000, //最後の現在地情報取得が20秒以内であればその情報を再利用する設定
+        timeout: 10000, //10秒以内に現在地情報を取得できなければ、処理を終了
+      };
+    });
+
+    // 保存後に#myMapの表示を初期化
+      function resetMap() {
+        $("#myMap").empty(); // #myMapの中身をクリア
+      }
+    </script>
+
+
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.13.0/firebase-app.js";
+      import {
+        getDatabase,
+        ref,
+        push,
+        set,
+        onChildAdded,
+        remove,
+        onChildRemoved,
+      } from "https://www.gstatic.com/firebasejs/9.13.0/firebase-database.js";
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "",
+        authDomain: "",
+        projectId: "",
+        storageBucket: "",
+        messagingSenderId: "",
+        appId: "",
+      };
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app); //RealtimeDBに接続
+      const dbRef = ref(db, "mylocation"); //RealtimeDB内の"chat"を使う
+
+      $("#save").on("click", function () {
+      $("#output").show();
+      resetMap(); // #myMapの表示を初期化
+
+      let day = new Date();
+  let dateString =
+    day.getFullYear() +
+    "年" +
+    (day.getMonth() + 1) +
+    "月" +
+    day.getDate() +
+    "日" +
+    day.getHours() +
+    "時" +
+    day.getMinutes() +
+    "分";
+
+    const location =
+     {
+    lat: savedLat,
+    lon: savedLon,};  
+
+  const msg = {
+    nowdate: dateString,
+    uname: $("#yourNameOption").val(),
+    myanpi: $("#myanpi").val(),
+    text: $("#fromWhoOption").val(),
+    message: $("#message").val(),
+    location: location,
+  };
+        const newPostRef = push(dbRef);
+        set(newPostRef, msg);
+        alert("登録");
+        console.log(msg);
+        cleardata();
+});
+     
+      // 最初にデータ取得＆onSnapshotでリアルタイムにデータを取得
+      onChildAdded(dbRef, function (data) {
+  const msg = data.val();
+
+  const latitude = msg.location.lat;
+  const longitude = msg.location.lon;
+
+  // 経度と緯度の情報からアドレスの取得
+  const geocodeRequest = `https://dev.virtualearth.net/REST/v1/Locations/${latitude},${longitude}?key=`;
+
+  $.getJSON(geocodeRequest, function (data) {
+    const address = data.resourceSets[0].resources[0].address.formattedAddress;
+
+    let h = `
+    <div class="message" data-message-id="${data.key}">
+      <div class="dateshow">${msg.nowdate}</div>
+      <div class="sender">名前：${msg.uname}</div>
+      <div class="show">
+        <div class="content">本人安否：${msg.myanpi}</div>
+        <div class="Tell">場所：${msg.text}</div>
+        <div class="internal">コメント：${msg.message}</div>
+        <div class="mylocation">位置情報：
+          <br>緯度 ${msg.location.lat}
+          <br>経度 ${msg.location.lon}
+          <br>住所 ${address}</div>
+      </div>
+    </div>
+    <br>
+    `;
+
+    $("#output").append(h);
+    $("#output").show();
+  });
+});
+   
+      // メッセージの削除イベント
+      function markAsCompleted(event) {
+      // クリックされた要素を取得
+      const clickedElement = event.currentTarget;
+      // 選択された要素を削除
+      $(clickedElement).remove();
+    }
+         $("#output").on("dblclick", ".message", markAsCompleted);
+
+
+
+      // Firebaseのデータ削除
+      $("#clear").on("click", function () {
+        if (confirm("本当に削除しますか？")) {
+          remove(dbRef);
+          $("#output").hide(); // データ削除後に非表示
+          location.reload();
+        }
+      });
+
+      // remove クリックイベント実行
+      $("#remove").on("click", function () {
+        cleardata();
+      });
+
+      // clearForm 関数
+      function cleardata() {
+      
+        $("#myanpi").html(`<select id="myanpi" name="anpi">
+        <option name="anpi">ーー</option>
+        <option name="anpi">無事</option>
+        <option name="anpi">軽傷</option>
+        <option name="anpi">重傷</option>
+        <option name="anpi">その他</option>
+        </select>`);
+
+        $("#fromWhoOption").html(`<select id="fromWhoOption" name="from">
+          <option name="from">ーー</option>
+          <option name="from">自宅</option>
+          <option name="from">会社</option>
+          <option name="from">学校</option>
+          <option name="from">駅</option>
+          <option name="from">その他</option>
+          </select>`);
+
+          $("#yourNameOption").val("");  
+          $("#message").val("");
+          $("#myMap").val("");
+      }
+    </script>
+
+  </body>
+</html>
